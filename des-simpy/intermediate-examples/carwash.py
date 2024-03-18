@@ -1,100 +1,49 @@
-"""
-Carwash example.
-
-Covers:
-
-- Waiting for other processes
-- Resources: Resource
-
-Scenario:
-  A carwash has a limited number of washing machines and defines
-  a washing processes that takes some (random) time.
-
-  Car processes arrive at the carwash at a random time. If one washing
-  machine is available, they start the washing process and wait for it
-  to finish. If not, they wait until they can use one.
-
-"""
-
-import itertools
-import random
 import simpy
+import random
+import numpy as np
 
-# fmt: off
-RANDOM_SEED = 42
-NUM_MACHINES = 2  # Number of machines in the carwash
-WASHTIME = 5      # Minutes it takes to clean a car
-T_INTER = 7       # Create a car every ~7 minutes
-SIM_TIME = 20     # Simulation time in minutes
-# fmt: on
-
-
-class Carwash:
-    """A carwash has a limited number of machines (``NUM_MACHINES``) to
-    clean cars in parallel.
-
-    Cars have to request one of the machines. When they got one, they
-    can start the washing processes and wait for it to finish (which
-    takes ``washtime`` minutes).
-
-    """
-
-    def __init__(self, env, num_machines, washtime):
+class ATM:
+    def __init__(self, env):
         self.env = env
-        self.machine = simpy.Resource(env, num_machines)
-        self.washtime = washtime
+        self.queue = simpy.Resource(env, capacity=1)
+        self.wait_times = []
+        self.customers_served = 0
 
-    def wash(self, car):
-        """The washing processes. It takes a ``car`` processes and tries
-        to clean it."""
-        yield self.env.timeout(self.washtime)
-        pct_dirt = random.randint(50, 99)
-        print(f"Carwash removed {pct_dirt}% of {car}'s dirt.")
+    def withdraw_cash(self, customer):
+        arrival_time = self.env.now
+        with self.queue.request() as request:
+            yield request
+            wait_time = self.env.now - arrival_time
+            self.wait_times.append(wait_time)
+            print(f"{self.env.now:.2f}: {customer} begins transaction")  # Print the start time
+            processing_time = random.normalvariate(5, 1.2)
+            if processing_time < 0:
+                processing_time = 0
+            yield self.env.timeout(processing_time)
+            print(f"{self.env.now:.2f}: {customer} withdrew cash")
+            self.customers_served += 1
 
-
-def car(env, name, cw):
-    """The car process (each car has a ``name``) arrives at the carwash
-    (``cw``) and requests a cleaning machine.
-
-    It then starts the washing process, waits for it to finish and
-    leaves to never come back ...
-
-    """
-    print(f'{name} arrives at the carwash at {env.now:.2f}.')
-    with cw.machine.request() as request:
-        yield request
-
-        print(f'{name} enters the carwash at {env.now:.2f}.')
-        yield env.process(cw.wash(name))
-
-        print(f'{name} leaves the carwash at {env.now:.2f}.')
-
-
-def setup(env, num_machines, washtime, t_inter):
-    """Create a carwash, a number of initial cars and keep creating cars
-    approx. every ``t_inter`` minutes."""
-    # Create the carwash
-    carwash = Carwash(env, num_machines, washtime)
-
-    car_count = itertools.count()
-
-    # Create 4 initial cars
-    for _ in range(4):
-        env.process(car(env, f'Car {next(car_count)}', carwash))
-
-    # Create more cars while the simulation is running
+def customer_generator(env, atm):
+    i = 1
     while True:
-        yield env.timeout(random.randint(t_inter - 2, t_inter + 2))
-        env.process(car(env, f'Car {next(car_count)}', carwash))
+        yield env.timeout(random.expovariate(1/4))  # Tiempo entre llegadas con media 4
+        env.process(atm.withdraw_cash(f"Customer-{i}"))
+        i += 1
 
+def simulate_atm(env):
+    atm = ATM(env)
+    env.process(customer_generator(env, atm))
+    yield env.timeout(4 * 60)  # Ejecutar durante 4 horas
+    
+    # Calculate average wait time
+    average_wait_time = np.mean(atm.wait_times)
+    print(f"Tiempo promedio de espera en cola: {average_wait_time:.2f} unidades de tiempo")
+    
+    # Print number of customers served
+    print(f"Número de personas atendidas: {atm.customers_served}")
 
 # Setup and start the simulation
-print('Carwash')
-random.seed(RANDOM_SEED)  # This helps to reproduce the results
-
-# Create an environment and start the setup process
+random.seed(42)
 env = simpy.Environment()
-env.process(setup(env, NUM_MACHINES, WASHTIME, T_INTER))
-
-# Execute!
-env.run(until=SIM_TIME)
+env.process(simulate_atm(env))
+env.run(until=4 * 60)  # Ejecutar la simulación durante 4 horas
