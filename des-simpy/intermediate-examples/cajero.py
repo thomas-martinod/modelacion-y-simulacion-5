@@ -49,7 +49,6 @@ def customer(env, name, atm):
     yield env.process(atm.withdraw_cash(name))
 
 def simulate_atm(env, num_customers):
-    global wait_times
     atm = ATM(env)
     for i in range(num_customers):
         env.process(customer(env, f"Customer-{i+1}", atm))

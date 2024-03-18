@@ -1,7 +1,7 @@
 import simpy
 import numpy as np
 
-SIMULATION_TIME = 60
+SIMULATION_TIME = 60 * 9 # 9 horas
 tiempos_de_espera_asignacion = []
 tiempos_en_el_sistema_asignacion = []
 personas_con_turno_asignado = 0
@@ -67,7 +67,7 @@ class Notaria:
             yield request
             tiempo_de_espera = self.env.now - hora_de_llegada
             print(f"{self.env.now:.2f}: {customer} comienza la autenticación de documentos")
-            tiempo_autenticacion = np.random.uniform(10, 20)
+            tiempo_autenticacion = np.random.uniform(8, 1.5)
             yield self.env.timeout(tiempo_autenticacion)
             tiempo_salida_autenticacion = self.env.now
             tiempo_en_autenticacion = tiempo_salida_autenticacion - hora_de_llegada
@@ -88,7 +88,7 @@ class Notaria:
             yield request
             tiempo_de_espera = self.env.now - hora_de_llegada
             print(f"{self.env.now:.2f}: {customer} comienza la emisión de documentos")
-            tiempo_emision = np.random.normal(loc=8, scale=3)
+            tiempo_emision = np.random.uniform(low=7, high=10)
             if tiempo_emision < 0:
                 tiempo_emision = 0
             yield self.env.timeout(tiempo_emision)
@@ -169,7 +169,6 @@ if len(tiempos_de_espera_emision) > 0:
     average_system_time_emision = np.mean(tiempos_en_el_sistema_emision)
     print(f"Tiempo promedio de espera en cola de emisión: {average_wait_time_emision:.2f} minutos")
     print(f"Tiempo promedio en el sistema de emisión: {average_system_time_emision:.2f} minutos")
-    print(f"Máximo tiempo en el sistema de emisión: {max(tiempos_en_el_sistema_emision):.2f} minutos")
 
     total_idle_time_emision = sum(tiempos_de_ocio_emision)
     idle_percentage_emision = total_idle_time_emision / SIMULATION_TIME
