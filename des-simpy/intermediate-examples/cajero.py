@@ -82,3 +82,6 @@ idle_percentaje = total_idle_time/SIMULATION_TIME
 occupation_percentage = 1-idle_percentaje
 print(f"El porcentaje de ocio es: {idle_percentaje*100:.2f}%")
 print(f"El porcentaje de ocupación es: {occupation_percentage*100:.2f}%")
+
+for i in range(8):
+    print(np.random.uniform(low=0,high=1))
